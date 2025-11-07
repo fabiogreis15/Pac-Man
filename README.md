@@ -4,7 +4,7 @@ Jogo Pac-Man em linguagem C desenvolvido para a disciplina Programação Imperat
 
  👥 Membros do Projeto
 - Fábio Gomes dos Reis — [fabiogreis15](https://github.com/fabiogreis15]
-
+- Deyvison Gabriel Guerra Lucas - [d.gabrielguerra] (https://github.com/dgabrielguerra]
 ---
 
  📘 Disciplina
