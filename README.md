@@ -40,5 +40,6 @@ Hungry Maze é um jogo em modo texto (terminal) onde o jogador controla o person
 
 Instruções detalhadas para compilar e executar o jogo:
 1. Verifique se o compilador C está instalado executando o cogido (gcc --version)
-2. Faça um clone do projeto (
+2. Faça um clone do projeto (https://github.com/fabiogreis15/Pac-Man.git)
+3. 
 
