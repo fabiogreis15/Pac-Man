@@ -4,11 +4,10 @@
 typedef struct {
     int x;
     int y;
-    int lives;
     int score;
 } Player;
 
-void init_player(Player *p, int start_x, int start_y);
-void move_player(Player *p, char direction);
+void player_init(Player* p, int startX, int startY);
+void player_move(Player* p, char input);
 
 #endif
