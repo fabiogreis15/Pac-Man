@@ -2,12 +2,13 @@
 #define PLAYER_H
 
 typedef struct {
-    int x;
-    int y;
+    int x, y;
     int score;
+    int isAlive;
+    int powered; // remaining ticks of power-up
 } Player;
 
-void player_init(Player* p, int startX, int startY);
-void player_move(Player* p, char input);
+void player_init(Player *p, int x, int y);
+void player_move(Player *p, int dx, int dy);
 
-#endif
+#endif // PLAYER_H

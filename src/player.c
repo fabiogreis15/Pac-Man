@@ -1,18 +1,15 @@
-#include "player.h"
+#include "../include/player.h"
+#include <stdlib.h>
 
-void player_init(Player* p, int startX, int startY) {
-    p->x = startX;
-    p->y = startY;
+void player_init(Player *p, int x, int y) {
+    p->x = x;
+    p->y = y;
     p->score = 0;
+    p->isAlive = 1;
+    p->powered = 0;
 }
 
-void player_move(Player* p, char input) {
-    switch (input) {
-        case 'w': p->y--; break;
-        case 's': p->y++; break;
-        case 'a': p->x--; break;
-        case 'd': p->x++; break;
-        default: break;
-    }
+void player_move(Player *p, int dx, int dy) {
+    p->x += dx;
+    p->y += dy;
 }
-
