@@ -1,132 +1,154 @@
-#include "../include/game.h"
-#include "../include/cli_lib.h"
-#include "../include/enemy.h"
-#include <stdio.h>
+#include "game.h"
+#include <ncurses.h>
+#include <locale.h>
 #include <stdlib.h>
+#include <time.h>
+#include <wchar.h>
 #include <string.h>
 
-static Map *map = NULL;
-static Player player;
-static Enemy *enemies = NULL;
-static int ticks = 0;
+#define WALL(ch)  ((ch)==L'║' || (ch)==L'═' || (ch)==L'╔' || (ch)==L'╗' || \
+                   (ch)==L'╚' || (ch)==L'╝' || (ch)==L'╬')
 
-// Small hardcoded map for demo
-static const char *layout[] = {
-    "#####################",
-    "#.......#...#.......#",
-    "#.###.#.#.#.#.#.###.#",
-    "#O# #.#.#.#.#.#.# #O#",
-    "#.# #.#.....#.#.# #.#",
-    "#.###.#####.#####.###",
-    "#...................#",
-    "#####################"
+void init_game(Game* g) {
+    g->score = 0;
+    g->game_over = 0;
+    g->ghost_move_counter = 0;
+
+    /* Labirinto 41×21 */
+    const wchar_t *template[MAP_HEIGHT] = {
+    L"╔═════════════════════════════════════════╗",
+    L"║     ║   ●    ║   ●    ║      ║  ●     ║ ║",
+    L"║     ║     ══║      ═╝   ║  ║════        ║",
+    L"║   ●                  ●        ●         ║",
+    L"║  ══╗      ═══════╬══════       ═══      ║",
+    L"║    ║      ║                ║          ● ║",
+    L"║  ══║ ══   ║   ═══   ║  ══  ║       ║    ║",
+    L"║    ║  ●    ║    ●     ║      ║       ║  ║",
+    L"║  ══╬══════╬═════════╬══════╬═══         ║",
+    L"║      ●       ●           ●        ●     ║",
+    L"║  ══        ═════════════════     ═══    ║",
+    L"║  ●   ║      ║    ●        ●   ║         ║",
+    L"║═══║  ══  ║   ═══   ║  ══  ║   ═══       ║",
+    L"║     ║  ●    ║    ●   ║      ║       ║   ║",
+    L"║  ═══╬══════╬═════════╬══════╬═══    ║   ║",
+    L"║ ●             ●              ●          ║",
+    L"║  ═══    ●    ═══════╬════════     ═══   ║",
+    L"║ ●             ║        ●                ║",
+    L"║     ║  ══  ║       ══    ║  ══  ║   ●   ║",
+    L"║ ●    ║     ║    ●    ║      ║     ●     ║",
+    L"╚═════════════════════════════════════════╝"
 };
 
-void spawn_enemies() {
-    enemies = enemy_create(10, 3, ENEMY_AND);
-    enemies->next = enemy_create(5, 5, ENEMY_OR);
-    enemies->next->next = enemy_create(15, 4, ENEMY_NOT);
+
+
+
+    for (int i = 0; i < MAP_HEIGHT; i++) {
+        wcsncpy(g->map[i], template[i], MAP_WIDTH);
+        g->map[i][MAP_WIDTH] = L'\0';
+    }
+
+    /* Posições iniciais */
+    g->pacman.x = 2;
+    g->pacman.y = 2;
+
+    g->ghosts[0].x = MAP_WIDTH - 4;  g->ghosts[0].y = 2;
+    g->ghosts[1].x = MAP_WIDTH - 4;  g->ghosts[1].y = MAP_HEIGHT - 3;
+    g->ghosts[2].x = 2;              g->ghosts[2].y = MAP_HEIGHT - 3;
+    g->ghosts[3].x = MAP_WIDTH / 2;  g->ghosts[3].y = MAP_HEIGHT / 2;
+
+    srand((unsigned)time(NULL));
 }
 
-void draw_map_and_entities() {
-    for (int y = 0; y < map->height; y++) {
-        for (int x = 0; x < map->width; x++) {
-            cli_draw_char(x, y, map->grid[y][x]);
+void draw_game(Game* g) {
+    clear();
+
+    for (int y = 0; y < MAP_HEIGHT; y++) {
+        mvaddwstr(y, 0, g->map[y]);
+    }
+
+    /* Pac-Man */
+    mvaddwstr(g->pacman.y, g->pacman.x, L"😄");
+
+    /* Fantasmas */
+    for (int i = 0; i < MAX_GHOSTS; i++) {
+        mvaddwstr(g->ghosts[i].y, g->ghosts[i].x, L"👻");
+    }
+
+    mvprintw(MAP_HEIGHT, 0, "Score: %d", g->score);
+    refresh();
+}
+
+void move_pacman(Game* g, int dx, int dy) {
+    int nx = g->pacman.x + dx;
+    int ny = g->pacman.y + dy;
+
+    if (nx < 0 || nx >= MAP_WIDTH || ny < 0 || ny >= MAP_HEIGHT) return;
+
+    wchar_t target = g->map[ny][nx];
+
+    if (!WALL(target)) {
+        g->pacman.x = nx;
+        g->pacman.y = ny;
+
+        if (target == L'●') {
+            g->map[ny][nx] = L' ';
+            g->score += 10;
         }
     }
-    // draw enemies
-    Enemy *e = enemies;
-    while (e) {
-        if (e->alive) cli_draw_char(e->x, e->y, 'G');
-        e = e->next;
-    }
-    // draw player
-    cli_draw_char(player.x, player.y, 'P');
 }
 
-void process_input_and_move(int key) {
-    int dx = 0, dy = 0;
-    if (key == 'w' || key == 'W') dy = -1;
-    if (key == 's' || key == 'S') dy = 1;
-    if (key == 'a' || key == 'A') dx = -1;
-    if (key == 'd' || key == 'D') dx = 1;
-    int nx = player.x + dx, ny = player.y + dy;
-    if (dx || dy) {
-        if (map_is_walkable(map, nx, ny)) {
-            char tile = map->grid[ny][nx];
-            if (tile == TILE_ITEM) { player.score++; map->grid[ny][nx] = TILE_PATH; }
-            if (tile == TILE_POWERUP) { player.powered = 50; map->grid[ny][nx] = TILE_PATH; }
-            player_move(&player, dx, dy);
-        }
-    }
-}
+void move_ghosts(Game* g) {
+    g->ghost_move_counter++;
+    if (g->ghost_move_counter % 6 != 0) return; /* Fantasmas mais lentos */
 
-Enemy *check_enemy_collision() {
-    Enemy *e = enemies;
-    while (e) {
-        if (e->alive && e->x == player.x && e->y == player.y) return e;
-        e = e->next;
-    }
-    return NULL;
-}
+    for (int i = 0; i < MAX_GHOSTS; i++) {
+        int dx = 0, dy = 0;
 
-void game_init() {
-    map = map_create_from_strings(layout, sizeof(layout)/sizeof(layout[0]));
-    player_init(&player, 1, 1);
-    spawn_enemies();
-}
+        if (g->ghosts[i].x < g->pacman.x) dx = 1;
+        else if (g->ghosts[i].x > g->pacman.x) dx = -1;
 
-void game_run() {
-    cli_init();
-    while (player.isAlive) {
-        cli_clear();
-        draw_map_and_entities();
-        // HUD
-        char hud[80];
-        snprintf(hud, sizeof(hud), "Score: %d  Items left: %d  Power: %d  Ticks: %d",
-                 player.score,
-                 map_count_remaining_items_recursive(map, 0, 0),
-                 player.powered,
-                 ticks);
-        cli_draw_text(0, map->height+1, hud);
-        cli_refresh();
+        if (g->ghosts[i].y < g->pacman.y) dy = 1;
+        else if (g->ghosts[i].y > g->pacman.y) dy = -1;
 
-        int key = cli_getch_nonblocking();
-        if (key == 'q' || key == 'Q') { player.isAlive = 0; break; }
-        process_input_and_move(key);
+        int nx = g->ghosts[i].x + dx;
+        int ny = g->ghosts[i].y + dy;
 
-        // update enemies recursively (simple)
-        enemy_update_recursive(&enemies, player.x, player.y, 0);
-
-        // check collisions
-        Enemy *col = check_enemy_collision();
-        if (col) {
-            if (player.powered > 0) {
-                col->alive = 0;
-                player.score += 10;
-            } else {
-                player.isAlive = 0;
+        if (nx >= 0 && nx < MAP_WIDTH && ny >= 0 && ny < MAP_HEIGHT) {
+            if (!WALL(g->map[ny][nx])) {
+                g->ghosts[i].x = nx;
+                g->ghosts[i].y = ny;
             }
         }
 
-        if (player.powered > 0) player.powered--;
+        if (g->ghosts[i].x == g->pacman.x && g->ghosts[i].y == g->pacman.y) {
+            g->game_over = 1;
+        }
+    }
+}
 
-        if (map_count_remaining_items_recursive(map, 0, 0) == 0) {
-            // win
-            cli_clear();
-            cli_draw_text(2,2, "*** Parabens! Você coletou todos os itens! Vitória! ***");
-            cli_refresh();
-            cli_sleep_ms(2000);
-            break;
+void game_run(Game* g) {
+    nodelay(stdscr, TRUE);
+    int ch;
+
+    while (!g->game_over) {
+        ch = getch();
+        switch (ch) {
+            case KEY_UP:    move_pacman(g, 0, -1); break;
+            case KEY_DOWN:  move_pacman(g, 0, 1);  break;
+            case KEY_LEFT:  move_pacman(g, -1, 0); break;
+            case KEY_RIGHT: move_pacman(g, 1, 0);  break;
+            case 'q': g->game_over = 1; break;
         }
 
-        ticks++;
-        cli_sleep_ms(120);
+        move_ghosts(g);
+        draw_game(g);
+        napms(90);
     }
 
-    // game over screen if player dead
-    if (!player.isAlive) {
-        cli_clear();
-        cli_draw_text(2,2, "*** Game Over ***");
-    }
-}   // <-- ESTA CHAVE FINAL ESTAVA FALTANDO!
+    clear();
+    mvprintw(MAP_HEIGHT/2, (MAP_WIDTH/2) - 5, "GAME OVER!");
+    mvprintw(MAP_HEIGHT/2 + 1, (MAP_WIDTH/2) - 8, "Final Score: %d", g->score);
+    refresh();
+    nodelay(stdscr, FALSE);
+    getch();
+}
