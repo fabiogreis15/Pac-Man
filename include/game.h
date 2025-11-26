@@ -3,7 +3,10 @@
 
 #include <wchar.h>
 
-#define MAP_WIDTH  41
+// 🎧 ADIÇÃO 1: Incluir o header do SDL_mixer
+#include <SDL2/SDL_mixer.h>
+
+#define MAP_WIDTH 41
 #define MAP_HEIGHT 21
 #define MAX_GHOSTS 4
 
@@ -18,6 +21,9 @@ typedef struct {
     int game_over;
     int ghost_move_counter;
     wchar_t map[MAP_HEIGHT][MAP_WIDTH + 1]; // +1 para '\0'
+    
+    // 🎧 ADIÇÃO 2: Novo campo para a música
+    Mix_Music *music; 
 } Game;
 
 void init_game(Game *g);

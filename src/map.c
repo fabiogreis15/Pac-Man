@@ -4,35 +4,41 @@
 #include <stdio.h>
 
 Map *map_create_from_strings(const char **layout, int height) {
-    Map *m = malloc(sizeof(Map));
-    m->height = height;
-    m->width = strlen(layout[0]);
-    m->grid = malloc(m->height * sizeof(char*));
+    Map *m = malloc(sizeof(Map));            // aloca struct Map
+    m->height = height;                      // define altura
+    m->width = strlen(layout[0]);            // largura baseada na 1ª linha
+    m->grid = malloc(m->height * sizeof(char*)); // aloca linhas do grid
+
     for (int i = 0; i < m->height; i++) {
-        m->grid[i] = malloc(m->width + 1);
-        strncpy(m->grid[i], layout[i], m->width);
-        m->grid[i][m->width] = '\0';
+        m->grid[i] = malloc(m->width + 1);   // aloca cada linha
+        strncpy(m->grid[i], layout[i], m->width); // copia string do layout
+        m->grid[i][m->width] = '\0';         // garante null-terminator
     }
-    return m;
+    return m;                                // retorna mapa criado
 }
 
 void map_free(Map *m) {
-    if (!m) return;
-    for (int i = 0; i < m->height; i++) free(m->grid[i]);
-    free(m->grid);
-    free(m);
+    if (!m) return;                           // evita free em NULL
+    for (int i = 0; i < m->height; i++)
+        free(m->grid[i]);                     // libera cada linha
+    free(m->grid);                             // libera vetor de linhas
+    free(m);                                   // libera struct Map
 }
 
 int map_is_walkable(Map *m, int x, int y) {
-    if (x < 0 || y < 0 || x >= m->width || y >= m->height) return 0;
-    char c = m->grid[y][x];
-    return (c != TILE_WALL);
+    if (x < 0 || y < 0 || x >= m->width || y >= m->height)
+        return 0;                              // fora do mapa → não andável
+
+    char c = m->grid[y][x];                    // pega caractere da célula
+    return (c != TILE_WALL);                   // só bloqueia se for parede
 }
 
-// recursive item counter: walks grid row-major but prevents double counting by bounds only
+// Conta itens recursivamente percorrendo o grid linha por linha
 int map_count_remaining_items_recursive(Map *m, int x, int y) {
-    if (y >= m->height) return 0;
-    if (x >= m->width) return map_count_remaining_items_recursive(m, 0, y+1);
-    int count = (m->grid[y][x] == TILE_ITEM);
-    return count + map_count_remaining_items_recursive(m, x+1, y);
+    if (y >= m->height) return 0;              // fim do mapa
+    if (x >= m->width)                         // fim da linha → próxima
+        return map_count_remaining_items_recursive(m, 0, y + 1);
+
+    int count = (m->grid[y][x] == TILE_ITEM);  // soma 1 se for item
+    return count + map_count_remaining_items_recursive(m, x + 1, y); // próximo
 }
